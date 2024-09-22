@@ -1,0 +1,296 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Platformer Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #87CEEB; /* Sky blue */
+        }
+        canvas {
+            display: block;
+            margin: 0 auto;
+            background-color: #f0f0f0; /* Ground color */
+            border: 1px solid #000;
+        }
+        #score, #highScore {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            font-size: 24px;
+            color: #000;
+        }
+        #highScore {
+            top: 40px; /* Adjusted position to be below current score */
+        }
+        #gameOver {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: red;
+            display: none;
+        }
+        #startScreen {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 48px;
+            color: #000;
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div id="score">Score: 0</div>
+    <div id="highScore">High Score: 0</div>
+    <div id="gameOver">Game Over!</div>
+    <div id="startScreen">Player 1 Start</div>
+    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <script>
+        const canvas = document.getElementById('gameCanvas');
+        const ctx = canvas.getContext('2d');
+        const scoreDisplay = document.getElementById('score');
+        const highScoreDisplay = document.getElementById('highScore');
+        const gameOverDisplay = document.getElementById('gameOver');
+        const startScreen = document.getElementById('startScreen');
+
+        let score = 0;
+        let highScore = localStorage.getItem('highScore') ? parseInt(localStorage.getItem('highScore')) : 0;
+        let gameOver = false;
+        let gameStarted = false;
+        let moveLeft = false;
+        let moveRight = false;
+
+        // Player class
+        class Player {
+            constructor() {
+                this.width = 40;
+                this.height = 60;
+                this.x = 100;
+                this.y = canvas.height - this.height - 10;
+                this.color = 'blue';
+                this.velocityY = 0;
+                this.gravity = 0.5;
+                this.jumpStrength = -20;
+                this.isJumping = false;
+                this.moveSpeed = 3;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                if (moveLeft) {
+                    this.x -= this.moveSpeed;
+                }
+                if (moveRight) {
+                    this.x += this.moveSpeed;
+                }
+
+                // Boundaries
+                if (this.x < 0) this.x = 0;
+                if (this.x > canvas.width - this.width) this.x = canvas.width - this.width;
+
+                if (this.isJumping) {
+                    this.velocityY += this.gravity;
+                    this.y += this.velocityY;
+
+                    if (this.y >= canvas.height - this.height - 10) {
+                        this.y = canvas.height - this.height - 10;
+                        this.isJumping = false;
+                        this.velocityY = 0;
+                    }
+                }
+            }
+
+            jump() {
+                if (!this.isJumping) {
+                    this.velocityY = this.jumpStrength;
+                    this.isJumping = true;
+                }
+            }
+        }
+
+        // Enemy class
+        class Enemy {
+            constructor(x, speed) {
+                this.width = 40;
+                this.height = 40;
+                this.x = x;
+                this.y = canvas.height - this.height - 10;
+                this.color = 'red';
+                this.speed = speed;
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+
+            update() {
+                this.x += this.speed;
+
+                // Reverse direction on canvas edges
+                if (this.x < 0 || this.x > canvas.width - this.width) {
+                    this.speed *= -1;
+                }
+            }
+        }
+
+        // Collectible class
+        class Collectible {
+            constructor() {
+                this.width = 20;
+                this.height = 20;
+                this.x = Math.random() * (canvas.width - this.width);
+                this.y = Math.random() * (canvas.height - this.height - 30);
+                this.color = 'gold';
+            }
+
+            draw() {
+                ctx.fillStyle = this.color;
+                ctx.fillRect(this.x, this.y, this.width, this.height);
+            }
+        }
+
+        let player;
+        let enemies;
+        let collectibles;
+
+        // Game loop
+        function gameLoop() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            player.update();
+            player.draw();
+
+            enemies.forEach(enemy => {
+                enemy.update();
+                enemy.draw();
+                if (detectCollision(player, enemy)) {
+                    endGame();
+                }
+            });
+
+            collectibles.forEach((collectible, index) => {
+                collectible.draw();
+                if (detectCollision(player, collectible)) {
+                    score++;
+                    updateScore();
+                    collectibles.splice(index, 1);
+                    collectibles.push(new Collectible());
+                    updateEnemySpeed(); // Check if enemy speed needs to be updated
+                }
+            });
+
+            if (!gameOver) {
+                requestAnimationFrame(gameLoop);
+            }
+        }
+
+        // Detect collision
+        function detectCollision(rect1, rect2) {
+            return rect1.x < rect2.x + rect2.width &&
+                   rect1.x + rect1.width > rect2.x &&
+                   rect1.y < rect2.y + rect2.height &&
+                   rect1.y + rect1.height > rect2.y;
+        }
+
+        // End game
+        function endGame() {
+            gameOver = true;
+            gameOverDisplay.style.display = 'block';
+            if (score > highScore) {
+                highScore = score;
+                localStorage.setItem('highScore', highScore); // Save high score to local storage
+            }
+            highScoreDisplay.innerText = `High Score: ${highScore}`;
+        }
+
+        // Update score
+        function updateScore() {
+            scoreDisplay.innerText = `Score: ${score}`;
+        }
+
+        // Update enemy speed based on score
+        function updateEnemySpeed() {
+            if (score > 0 && score % 25 === 0) {
+                enemies.forEach(enemy => {
+                    enemy.speed += 0.5; // Increase speed by 0.5 for all enemies
+                });
+            }
+        }
+
+        // Handle key presses
+        window.addEventListener('keydown', (e) => {
+            if (!gameStarted) {
+                startGame();
+            } else {
+                if (e.key === 'a' || e.key === 'ArrowLeft') {
+                    moveLeft = true;
+                } else if (e.key === 'd' || e.key === 'ArrowRight') {
+                    moveRight = true;
+                } else if (e.key === 'w' || e.key === 'ArrowUp') {
+                    player.jump();
+                } else if (e.key === ' ') { // Restart game on spacebar press
+                    if (gameOver) {
+                        restartGame();
+                    }
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (e.key === 'a' || e.key === 'ArrowLeft') {
+                moveLeft = false;
+            } else if (e.key === 'd' || e.key === 'ArrowRight') {
+                moveRight = false;
+            }
+        });
+
+        // Start the game
+        function startGame() {
+            gameStarted = true;
+            startScreen.style.display = 'none';
+            resetGame();
+            gameLoop();
+        }
+
+        // Reset game state
+        function resetGame() {
+            player = new Player();
+            const initialSpeed = 1; // Set initial speed for both enemies
+            enemies = [
+                new Enemy(200, initialSpeed), // Moves right
+                new Enemy(400, -initialSpeed)  // Moves left
+            ];
+            collectibles = [new Collectible(), new Collectible(), new Collectible()];
+            score = 0;
+            gameOver = false;
+            scoreDisplay.innerText = `Score: ${score}`;
+            gameOverDisplay.style.display = 'none';
+        }
+
+        // Restart game
+        function restartGame() {
+            highScoreDisplay.innerText = `High Score: ${highScore}`; // Display high score
+            startScreen.style.display = 'block'; // Show start screen again
+            gameStarted = false; // Reset game start flag
+            resetGame(); // Reset game state
+        }
+
+        // Display initial high score
+        highScoreDisplay.innerText = `High Score: ${highScore}`;
+
+        // Show start screen
+        startScreen.style.display = 'block';
+    </script>
+</body>
+</html>
