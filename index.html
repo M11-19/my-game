@@ -7,51 +7,61 @@
     <style>
         body {
             margin: 0;
-            overflow: hidden;
-            background-color: #87CEEB; /* Sky blue */
+            overflow-y: hidden; /* Disable vertical scrolling */
+            height: 100vh; /* Full viewport height */
+            background-image: url('https://i.etsystatic.com/12076554/r/il/aa0083/1758385225/il_fullxfull.1758385225_qfel.jpg');
+            background-size: cover;
+            background-position: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding-top: 40px; /* Adjust padding for better fit */
+        }
+        #gameContainer {
+            position: relative;
+            width: 1000px; /* Increase width */
+            height: 600px; /* Increase height */
+            margin-top: 20px; /* Keep the game area raised */
+            background-color: rgba(240, 240, 240, 0.8); /* Slightly transparent to show background */
+            border: 1px solid #000;
         }
         canvas {
             display: block;
-            margin: 0 auto;
-            background-color: #f0f0f0; /* Ground color */
-            border: 1px solid #000;
+            width: 100%; /* Make canvas responsive */
+            height: 100%; /* Match height */
         }
-        #score, #highScore {
-            position: absolute;
-            top: 10px;
-            left: 10px;
+        #scoreContainer {
+            position: relative;
+            width: 1000px; /* Match game container width */
+            display: flex;
+            justify-content: space-between;
             font-size: 24px;
             color: #000;
+            margin-top: 10px; /* Space above the score display */
         }
-        #highScore {
-            top: 40px; /* Adjusted position to be below current score */
-        }
-        #gameOver {
+        #gameOver, #startScreen {
             position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
+            top: calc(50% - 24px); /* Center vertically in the play area */
+            left: calc(50% - 150px); /* Adjust for width of text */
             font-size: 48px;
             color: red;
-            display: none;
+            display: none; /* Initially hidden */
         }
         #startScreen {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            font-size: 48px;
-            color: #000;
-            display: none;
+            color: #000; /* Change color for start screen */
         }
     </style>
 </head>
 <body>
-    <div id="score">Score: 0</div>
-    <div id="highScore">High Score: 0</div>
-    <div id="gameOver">Game Over!</div>
-    <div id="startScreen">Player 1 Start</div>
-    <canvas id="gameCanvas" width="800" height="400"></canvas>
+    <div id="gameContainer">
+        <canvas id="gameCanvas" width="1000" height="600"></canvas>
+        <div id="scoreContainer">
+            <div id="score">Score: 0</div>
+            <div id="highScore">High Score: 0</div>
+        </div>
+        <div id="gameOver">Game Over!</div>
+        <div id="startScreen">Player 1 Start</div>
+    </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
         const ctx = canvas.getContext('2d');
@@ -66,19 +76,22 @@
         let gameStarted = false;
         let moveLeft = false;
         let moveRight = false;
+        let enemySpeed = 1; // Initial speed for both enemies
 
         // Player class
         class Player {
             constructor() {
                 this.width = 40;
                 this.height = 60;
-                this.x = 100;
+                this.x = (canvas.width / 2) - (this.width / 2); // Start in the middle
                 this.y = canvas.height - this.height - 10;
                 this.color = 'blue';
                 this.velocityY = 0;
                 this.gravity = 0.5;
-                this.jumpStrength = -20;
+                this.jumpStrength = -20; // Initial jump strength
+                this.secondJumpStrength = -12; // Second jump strength
                 this.isJumping = false;
+                this.jumpCount = 0; // Count the number of jumps
                 this.moveSpeed = 3;
             }
 
@@ -103,18 +116,24 @@
                     this.velocityY += this.gravity;
                     this.y += this.velocityY;
 
+                    // Prevent jumping out of gameplay area
                     if (this.y >= canvas.height - this.height - 10) {
                         this.y = canvas.height - this.height - 10;
                         this.isJumping = false;
+                        this.jumpCount = 0; // Reset jump count on landing
                         this.velocityY = 0;
                     }
                 }
             }
 
             jump() {
-                if (!this.isJumping) {
+                if (this.jumpCount === 0) { // First jump
                     this.velocityY = this.jumpStrength;
                     this.isJumping = true;
+                    this.jumpCount++; // Increment jump count
+                } else if (this.jumpCount === 1) { // Second jump
+                    this.velocityY = this.secondJumpStrength; // Use second jump strength
+                    this.jumpCount++; // Increment jump count
                 }
             }
         }
@@ -150,8 +169,8 @@
             constructor() {
                 this.width = 20;
                 this.height = 20;
-                this.x = Math.random() * (canvas.width - this.width);
-                this.y = Math.random() * (canvas.height - this.height - 30);
+                this.x = Math.random() * (canvas.width - this.width); // Ensure x is within the canvas
+                this.y = Math.random() * (canvas.height - this.height - 30); // Ensure y is within the gameplay area
                 this.color = 'gold';
             }
 
@@ -185,7 +204,7 @@
                     score++;
                     updateScore();
                     collectibles.splice(index, 1);
-                    collectibles.push(new Collectible());
+                    collectibles.push(new Collectible()); // Ensure new collectible is spawned
                     updateEnemySpeed(); // Check if enemy speed needs to be updated
                 }
             });
@@ -222,8 +241,9 @@
         // Update enemy speed based on score
         function updateEnemySpeed() {
             if (score > 0 && score % 25 === 0) {
+                enemySpeed += 0.5; // Increase uniform speed
                 enemies.forEach(enemy => {
-                    enemy.speed += 0.5; // Increase speed by 0.5 for all enemies
+                    enemy.speed = enemySpeed; // Set both enemies to the same speed
                 });
             }
         }
@@ -239,7 +259,8 @@
                     moveRight = true;
                 } else if (e.key === 'w' || e.key === 'ArrowUp') {
                     player.jump();
-                } else if (e.key === ' ') { // Restart game on spacebar press
+                } else if (e.key === ' ') { // Prevent spacebar from scrolling
+                    e.preventDefault(); // Prevent default spacebar action
                     if (gameOver) {
                         restartGame();
                     }
@@ -266,12 +287,12 @@
         // Reset game state
         function resetGame() {
             player = new Player();
-            const initialSpeed = 1; // Set initial speed for both enemies
+            enemySpeed = 1; // Reset initial speed for both enemies
             enemies = [
-                new Enemy(200, initialSpeed), // Moves right
-                new Enemy(400, -initialSpeed)  // Moves left
+                new Enemy(0, enemySpeed), // Moves right from the left edge
+                new Enemy(canvas.width - 40, -enemySpeed)  // Moves left from the right edge
             ];
-            collectibles = [new Collectible(), new Collectible(), new Collectible()];
+            collectibles = [new Collectible(), new Collectible()];
             score = 0;
             gameOver = false;
             scoreDisplay.innerText = `Score: ${score}`;
