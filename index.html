@@ -48,7 +48,15 @@
             display: none; /* Initially hidden */
         }
         #startScreen {
-            color: #000; /* Change color for start screen */
+            color: black; /* Change color for start screen to black */
+            text-align: center; /* Center text */
+            font-size: 48px; /* Match the size of the game over text */
+            font-weight: bold; /* Make it bold */
+        }
+        #instructions {
+            margin-top: 20px;
+            font-size: 20px;
+            color: blue; /* Change color for instructions */
         }
     </style>
 </head>
@@ -60,7 +68,16 @@
             <div id="highScore">High Score: 0</div>
         </div>
         <div id="gameOver">Game Over!</div>
-        <div id="startScreen">Player 1 Start</div>
+        <div id="startScreen">
+            Player 1 Start
+            <div id="instructions">
+                <strong>How to Play:</strong><br>
+                Use <strong>A</strong> and <strong>D</strong> to move left and right.<br>
+                Press <strong>W</strong> or <strong>Arrow Up</strong> to jump.<br>
+                Double jump is allowed!<br>
+                Collect gold coins and avoid enemies!
+            </div>
+        </div>
     </div>
     <script>
         const canvas = document.getElementById('gameCanvas');
@@ -259,8 +276,7 @@
                     moveRight = true;
                 } else if (e.key === 'w' || e.key === 'ArrowUp') {
                     player.jump();
-                } else if (e.key === ' ') { // Prevent spacebar from scrolling
-                    e.preventDefault(); // Prevent default spacebar action
+                } else if (e.key === ' ') { // Restart game on spacebar press
                     if (gameOver) {
                         restartGame();
                     }
